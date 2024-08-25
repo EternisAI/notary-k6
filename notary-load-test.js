@@ -1,15 +1,18 @@
 import { browser } from 'k6/browser';
 import { Trend } from 'k6/metrics';
+import exec from 'k6/execution';
 
 export const options = {
     scenarios: {
         ui: {
-            executor: 'shared-iterations',
+            executor: 'per-vu-iterations',
             options: {
                 browser: {
                     type: 'chromium',
                 },
             },
+            vus: 3,
+            iterations: 10,
         },
     },
     thresholds: {
@@ -42,8 +45,7 @@ export default async function () {
 
         await page.locator("#proof").click();
         await page.locator("#verification").click();
-
-        await page.screenshot({ path: 'screenshot.png' });
+        await page.screenshot({ path: `scsht/${exec.vu.iterationInInstance}.png` });
     } finally {
         await page.close();
     }
