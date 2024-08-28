@@ -1,6 +1,7 @@
 import { browser } from 'k6/browser';
 import { Trend } from 'k6/metrics';
 import exec from 'k6/execution';
+import { fail, check } from 'k6';
 
 export const options = {
     scenarios: {
@@ -11,8 +12,8 @@ export const options = {
                     type: 'chromium',
                 },
             },
-            vus: 3,
-            iterations: 10,
+            vus: 5,
+            iterations: 5,
         },
     },
     thresholds: {
@@ -28,8 +29,14 @@ export default async function () {
 
     try {
         await page.goto('http://localhost:8080');
+        await page.waitForLoadState("load");
         await page.evaluate(() => window.performance.mark('page-visit'));
-        await Promise.all([page.waitForLoadState("networkidle"), page.locator('#start-demo').click()]);
+        await page.locator('#start-demo').click();
+        await page.waitForTimeout(3000);
+        const proof = await page.waitForFunction("document.querySelector('#proof')", {polling: "mutation"});
+        const proofInnerHtml = await proof.innerText();
+        check(proof, { 'proof successfully resolved': proofInnerHtml !== '' });
+        
         await page.evaluate(() => window.performance.mark('action-completed'));
         await page.evaluate(() =>
             window.performance.measure('total-action-time', 'page-visit', 'action-completed')
@@ -43,10 +50,11 @@ export default async function () {
 
         myTrend.add(totalActionTime);
 
-        await page.locator("#proof").click();
-        await page.locator("#verification").click();
         await page.screenshot({ path: `scsht/${exec.vu.iterationInInstance}.png` });
+    } catch (err) {
+        fail(err);
     } finally {
         await page.close();
+        await context.close();
     }
 }
